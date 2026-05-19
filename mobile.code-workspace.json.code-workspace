@@ -1,0 +1,69 @@
+{
+  "folders": [
+    {
+      "path": ".",
+    },
+  ],
+  "settings": {
+    "terminal.integrated.shellIntegration.enabled": true,
+    "terminal.integrated.defaultProfile.linux": "bash",
+
+    "github.copilot.advanced": {
+      "debug.useNodeFetcher": true,
+    },
+
+    "files.watcherExclude": {
+      "**/.git/objects/**": true,
+      "**/.git/index": true,
+      "**/node_modules/**": true,
+      "**/build/**": true,
+      "**/android/build/**": true,
+      "**/ios/build/**": true,
+      "**/.expo/**": true,
+    },
+    "files.exclude": {
+      "**/.git": true,
+      "**/node_modules": true,
+      "**/.expo": true,
+      "**/android/build": true,
+      "**/ios/build": true,
+      "**/tmp": true,
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/.expo": true,
+      "**/android/**": true,
+      "**/ios/**": true,
+    },
+
+    "js/ts.preferences.importModuleSpecifier": "relative",
+    "js/ts.updateImportsOnFileMove.enabled": "always",
+   
+    "debug.javascript.terminalOptions": {
+      "skipFiles": ["<node_internals>/**"],
+    },
+
+    "expo.expoCliPath": "npx expo",
+    "react-native.packager.port": 8081,
+
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "eslint.validate": ["javascript", "typescript", "typescriptreact"],
+    "files.insertFinalNewline": true,
+    "files.trimTrailingWhitespace": true,
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-vscode-remote.remote-wsl",
+      "dbaeumer.vscode-eslint",
+      "esbenp.prettier-vscode",
+      "ms-vscode.vscode-typescript-next",
+      "expo.vscode-expo-tools",
+      "msjsdiag.vscode-react-native",
+      "vadimcn.vscode-lldb",
+      "redhat.vscode-yaml",
+      "github.copilot",
+      "github.copilot-chat",
+    ],
+  },
+}
