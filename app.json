@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Blue Sky Post",
-    "slug": "blue-sky-postcard",
+    "slug": "blue-sky-post",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -41,7 +41,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "3894dcaa-de7a-4c6a-935a-94ec8b328d02"
+        "projectId": "adfb386d-40a9-46cf-a93f-8db004ba35c9"
       }
     },
     "owner": "tonydshen"
