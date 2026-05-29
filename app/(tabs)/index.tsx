@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useState } from "react";
 import {
@@ -25,6 +26,13 @@ interface PostMedia {
   name: string;
 }
 
+interface DocumentItem {
+  uri: string;
+  title: string;
+  name: string;
+  mimeType?: string;
+}
+
 interface UserProfile {
   fname: string;
   lname: string;
@@ -39,6 +47,8 @@ export default function BlueSkyApp() {
   const [postTitle, setPostTitle] = useState("");
   const [postDescription, setPostDescription] = useState("");
   const [mediaList, setMediaList] = useState<PostMedia[]>([]);
+  const [documentList, setDocumentList] = useState<DocumentItem[]>([]);
+  const [documentTitle, setDocumentTitle] = useState("");
   const [uploading, setUploading] = useState(false);
   const [locationEnabled, setLocationEnabled] = useState(true);
 
@@ -90,8 +100,50 @@ export default function BlueSkyApp() {
     }
   };
 
+  const pickDocument = async () => {
+    if (!documentTitle.trim()) {
+      Alert.alert("Title Required", "Please enter a title for the document");
+      return;
+    }
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          "application/pdf",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "application/vnd.google-apps.document",
+          "text/plain",
+          "text/csv",
+          "application/vnd.ms-excel",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ],
+      });
+
+      if (!result.canceled && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const newDocument: DocumentItem = {
+          uri: asset.uri,
+          title: documentTitle.trim(),
+          name: asset.name || "document",
+          mimeType: asset.mimeType,
+        };
+        setDocumentList([...documentList, newDocument]);
+        setDocumentTitle(""); // Reset title input after adding
+      }
+    } catch (err) {
+      Alert.alert("Error", "Failed to pick document");
+    }
+  };
+
+  const removeDocument = (index: number) => {
+    const updated = [...documentList];
+    updated.splice(index, 1);
+    setDocumentList(updated);
+  };
+
   const uploadToDCL = async () => {
-    if (mediaList.length === 0) return;
+    if (mediaList.length === 0 && documentList.length === 0) return;
     setUploading(true);
 
     try {
@@ -118,6 +170,17 @@ export default function BlueSkyApp() {
         formData.append(`caption_${index}`, item.caption);
       });
 
+      // Append documents with titles
+      documentList.forEach((doc, index) => {
+        const file = {
+          uri: doc.uri,
+          type: doc.mimeType || "application/octet-stream",
+          name: doc.name,
+        } as any;
+        formData.append(`document_${index}`, file);
+        formData.append(`document_title_${index}`, doc.title);
+      });
+
       const response = await fetch(
         "https://datacommlab.com/scripts/test3.php",
         {
@@ -138,8 +201,10 @@ export default function BlueSkyApp() {
           { text: "Done", style: "cancel" },
         ]);
         setMediaList([]);
+        setDocumentList([]);
         setPostTitle("");
         setPostDescription("");
+        setDocumentTitle("");
       } else {
         throw new Error(result.error);
       }
@@ -190,7 +255,40 @@ export default function BlueSkyApp() {
       <TouchableOpacity style={styles.btnRed} onPress={pickMedia}>
         <Text style={styles.btnText}>+ Add Photo/Video</Text>
       </TouchableOpacity>
-      {mediaList.length > 0 && (
+
+      {/* Documents Section */}
+      <View style={styles.documentSection}>
+        <Text style={styles.sectionTitle}>📄 Documents</Text>
+        <TextInput
+          style={styles.documentTitleInput}
+          placeholder="Document title (e.g., Houston Food Bank Event by Tony Shen on May 28 about Volunteering)"
+          value={documentTitle}
+          onChangeText={setDocumentTitle}
+          maxLength={200}
+        />
+        <TouchableOpacity style={styles.btnOrange} onPress={pickDocument}>
+          <Text style={styles.btnText}>+ Add Document (PDF, Word, etc.)</Text>
+        </TouchableOpacity>
+
+        {documentList.map((doc, index) => (
+          <View key={index} style={styles.documentCard}>
+            <View style={styles.documentInfo}>
+              <Text style={styles.documentFileName} numberOfLines={1}>
+                📎 {doc.name}
+              </Text>
+              <Text style={styles.documentTitle}>{doc.title}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.removeBtn}
+              onPress={() => removeDocument(index)}
+            >
+              <Text style={styles.removeBtnText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        ))}
+      </View>
+
+      {(mediaList.length > 0 || documentList.length > 0) && (
         <TouchableOpacity
           style={styles.btnBlue}
           onPress={uploadToDCL}
@@ -448,6 +546,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginVertical: 10,
   },
+  btnOrange: {
+    backgroundColor: "#ff9500",
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    marginVertical: 10,
+  },
   btnBlue: {
     backgroundColor: "#007bff",
     padding: 15,
@@ -483,5 +588,64 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#eee",
     fontSize: 14,
+  },
+  documentSection: {
+    marginVertical: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#ddd",
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#444",
+    marginBottom: 10,
+  },
+  documentTitleInput: {
+    fontSize: 13,
+    padding: 10,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    marginBottom: 10,
+  },
+  documentCard: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+    padding: 12,
+    backgroundColor: "#f5f5f5",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  documentInfo: {
+    flex: 1,
+    marginRight: 10,
+  },
+  documentFileName: {
+    fontSize: 12,
+    color: "#888",
+    marginBottom: 3,
+  },
+  documentTitle: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#333",
+  },
+  removeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#ff4757",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  removeBtnText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
   },
 });
