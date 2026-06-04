@@ -52,10 +52,21 @@ foreach ($_FILES as $key => $file) {
             if (strpos($key, 'document_') === 0) {
                 // Handle document uploads
                 $index = str_replace('document_', '', $key);
-                $docTitle = $_POST['document_title_' . $index] ?? 'Untitled Document';
+                $docCaption = $_POST['document_caption_' . $index] ?? '';
+                
+                // If no caption provided, auto-generate from post title
+                if (empty($docCaption)) {
+                    $slug = strtolower(trim($postTitle));
+                    $slug = preg_replace("/[^a-z0-9]+/", "-", $slug);
+                    $slug = trim($slug, "-");
+                    if (empty($slug)) { $slug = "document"; }
+                    $docCount = count($uploadedDocuments) + 1;
+                    $docCaption = $slug . " doc " . $docCount;
+                }
+                
                 $uploadedDocuments[] = [
                     'name' => $safeName,
-                    'title' => $docTitle,
+                    'title' => $docCaption,
                     'originalName' => $file['name']
                 ];
             } else {

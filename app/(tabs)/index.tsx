@@ -28,7 +28,7 @@ interface PostMedia {
 
 interface DocumentItem {
   uri: string;
-  title: string;
+  caption: string;
   name: string;
   mimeType?: string;
 }
@@ -48,7 +48,6 @@ export default function BlueSkyApp() {
   const [postDescription, setPostDescription] = useState("");
   const [mediaList, setMediaList] = useState<PostMedia[]>([]);
   const [documentList, setDocumentList] = useState<DocumentItem[]>([]);
-  const [documentTitle, setDocumentTitle] = useState("");
   const [uploading, setUploading] = useState(false);
   const [locationEnabled, setLocationEnabled] = useState(true);
 
@@ -101,38 +100,50 @@ export default function BlueSkyApp() {
   };
 
   const pickDocument = async () => {
-    if (!documentTitle.trim()) {
-      Alert.alert("Title Required", "Please enter a title for the document");
-      return;
-    }
-
     try {
-      const result = await DocumentPicker.getDocumentAsync({
+      // First attempt: Try with common document MIME types
+      let result = await DocumentPicker.getDocumentAsync({
         type: [
           "application/pdf",
           "application/msword",
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          "application/vnd.google-apps.document",
-          "text/plain",
-          "text/csv",
           "application/vnd.ms-excel",
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "text/plain",
+          "text/csv",
         ],
+        copyToCacheDirectory: true,
       });
 
-      if (!result.canceled && result.assets.length > 0) {
+      // Fallback: If first attempt fails or is canceled, try with wildcard
+      if (result.canceled) {
+        console.warn("Document picker canceled, trying with wildcard type...");
+        result = await DocumentPicker.getDocumentAsync({
+          type: "*/*",
+          copyToCacheDirectory: true,
+        });
+      }
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
+        console.log("Document picked:", asset.name, asset.mimeType);
+        
         const newDocument: DocumentItem = {
           uri: asset.uri,
-          title: documentTitle.trim(),
+          caption: "",
           name: asset.name || "document",
-          mimeType: asset.mimeType,
+          mimeType: asset.mimeType || "application/octet-stream",
         };
         setDocumentList([...documentList, newDocument]);
-        setDocumentTitle(""); // Reset title input after adding
+      } else {
+        console.log("Document picker was canceled or no assets returned");
       }
-    } catch (err) {
-      Alert.alert("Error", "Failed to pick document");
+    } catch (err: any) {
+      console.error("Document picker error:", err);
+      Alert.alert(
+        "Error",
+        `Failed to pick document: ${err.message || "Unknown error"}`
+      );
     }
   };
 
@@ -140,6 +151,37 @@ export default function BlueSkyApp() {
     const updated = [...documentList];
     updated.splice(index, 1);
     setDocumentList(updated);
+  };
+
+  // Alternative document picker - uses no MIME type restrictions (broadest compatibility)
+  const pickDocumentUniversal = async () => {
+    try {
+      console.log("Launching universal document picker...");
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        console.log("Document picked (universal):", {
+          name: asset.name,
+          mimeType: asset.mimeType,
+          size: asset.size,
+        });
+
+        const newDocument: DocumentItem = {
+          uri: asset.uri,
+          caption: "",
+          name: asset.name || "document",
+          mimeType: asset.mimeType || "application/octet-stream",
+        };
+        setDocumentList([...documentList, newDocument]);
+      }
+    } catch (err: any) {
+      console.error("Universal document picker error:", err);
+      Alert.alert("Error", `Failed to pick document: ${err.message || "Unknown error"}`);
+    }
   };
 
   const uploadToDCL = async () => {
@@ -170,7 +212,7 @@ export default function BlueSkyApp() {
         formData.append(`caption_${index}`, item.caption);
       });
 
-      // Append documents with titles
+      // Append documents with captions
       documentList.forEach((doc, index) => {
         const file = {
           uri: doc.uri,
@@ -178,7 +220,7 @@ export default function BlueSkyApp() {
           name: doc.name,
         } as any;
         formData.append(`document_${index}`, file);
-        formData.append(`document_title_${index}`, doc.title);
+        formData.append(`document_caption_${index}`, doc.caption);
       });
 
       const response = await fetch(
@@ -204,7 +246,6 @@ export default function BlueSkyApp() {
         setDocumentList([]);
         setPostTitle("");
         setPostDescription("");
-        setDocumentTitle("");
       } else {
         throw new Error(result.error);
       }
@@ -257,36 +298,36 @@ export default function BlueSkyApp() {
       </TouchableOpacity>
 
       {/* Documents Section */}
-      <View style={styles.documentSection}>
-        <Text style={styles.sectionTitle}>📄 Documents</Text>
-        <TextInput
-          style={styles.documentTitleInput}
-          placeholder="Document title (e.g., Houston Food Bank Event by Tony Shen on May 28 about Volunteering)"
-          value={documentTitle}
-          onChangeText={setDocumentTitle}
-          maxLength={200}
-        />
-        <TouchableOpacity style={styles.btnOrange} onPress={pickDocument}>
-          <Text style={styles.btnText}>+ Add Document (PDF, Word, etc.)</Text>
-        </TouchableOpacity>
-
-        {documentList.map((doc, index) => (
-          <View key={index} style={styles.documentCard}>
-            <View style={styles.documentInfo}>
-              <Text style={styles.documentFileName} numberOfLines={1}>
-                📎 {doc.name}
-              </Text>
-              <Text style={styles.documentTitle}>{doc.title}</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.removeBtn}
-              onPress={() => removeDocument(index)}
-            >
-              <Text style={styles.removeBtnText}>✕</Text>
-            </TouchableOpacity>
+      {documentList.map((doc, index) => (
+        <View key={index} style={styles.mediaCard}>
+          <View style={styles.documentPreview}>
+            <Text style={styles.documentIcon}>📄</Text>
+            <Text style={styles.documentFileName} numberOfLines={1}>
+              {doc.name}
+            </Text>
           </View>
-        ))}
-      </View>
+          <TextInput
+            style={styles.input}
+            placeholder="Add document name, title, author, or description (optional)..."
+            value={doc.caption}
+            onChangeText={(t) => {
+              const d = [...documentList];
+              d[index].caption = t;
+              setDocumentList(d);
+            }}
+          />
+          <TouchableOpacity
+            style={styles.removeDocBtn}
+            onPress={() => removeDocument(index)}
+          >
+            <Text style={styles.removeBtnText}>Remove Document</Text>
+          </TouchableOpacity>
+        </View>
+      ))}
+
+      <TouchableOpacity style={styles.btnOrange} onPress={pickDocumentUniversal}>
+        <Text style={styles.btnText}>+ Add Document (PDF, Word, etc.)</Text>
+      </TouchableOpacity>
 
       {(mediaList.length > 0 || documentList.length > 0) && (
         <TouchableOpacity
@@ -589,63 +630,28 @@ const styles = StyleSheet.create({
     borderColor: "#eee",
     fontSize: 14,
   },
-  documentSection: {
-    marginVertical: 20,
-    paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#ddd",
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#444",
-    marginBottom: 10,
-  },
-  documentTitleInput: {
-    fontSize: 13,
-    padding: 10,
-    backgroundColor: "#f9f9f9",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    marginBottom: 10,
-  },
-  documentCard: {
+  documentPreview: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
-    padding: 12,
-    backgroundColor: "#f5f5f5",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    padding: 15,
+    backgroundColor: "#fff9e6",
+    borderRadius: 5,
   },
-  documentInfo: {
-    flex: 1,
+  documentIcon: {
+    fontSize: 24,
     marginRight: 10,
   },
   documentFileName: {
-    fontSize: 12,
-    color: "#888",
-    marginBottom: 3,
-  },
-  documentTitle: {
+    flex: 1,
     fontSize: 13,
     fontWeight: "500",
     color: "#333",
   },
-  removeBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "#ff4757",
-    justifyContent: "center",
+  removeDocBtn: {
+    backgroundColor: "#ff6b6b",
+    padding: 10,
+    borderRadius: 5,
     alignItems: "center",
-  },
-  removeBtnText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
+    marginTop: 8,
   },
 });

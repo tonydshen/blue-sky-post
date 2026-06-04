@@ -23,7 +23,12 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.tonydshen.blueskypost"
+      "package": "com.tonydshen.blueskypost",
+      "permissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_MEDIA_LOCATION"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -33,7 +38,13 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-document-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your documents."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
