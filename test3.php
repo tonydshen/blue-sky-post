@@ -90,6 +90,44 @@ $NEW_FILENAME = $slug . ".htm";
 $phpScriptUrl = $baseUrl . $folderName . "/scripts/bswp-" . $slug . ".php";
 $indexHtmlUrl = $baseUrl . $folderName . "/index.html";
 
+// 5.5 PROCESS & SAVE USER-SUBMITTED LINKS
+// Links arrive as plain POST fields (link_url_N / link_caption_N) and are
+// written to links/<slug>.htm (e.g. links/rpf-pds-prescription-pickup-robot-assistant.htm)
+// so the BSWP template view can include them. Written here, BEFORE
+// create_bswp_script(), whose guard will not overwrite an existing links file.
+$uploadedLinks = [];
+$linkIndex = 0;
+while (isset($_POST['link_url_' . $linkIndex])) {
+    $linkUrl = trim($_POST['link_url_' . $linkIndex]);
+    if ($linkUrl !== '') {
+        // Normalize scheme; only allow http/https
+        if (!preg_match('#^https?://#i', $linkUrl)) {
+            $linkUrl = 'https://' . $linkUrl;
+        }
+        $linkCaption = trim($_POST['link_caption_' . $linkIndex] ?? '');
+        if ($linkCaption === '') { $linkCaption = $linkUrl; }
+        $uploadedLinks[] = ['url' => $linkUrl, 'title' => $linkCaption];
+    }
+    $linkIndex++;
+}
+
+$linksDirFs = $targetDirFs . "links";
+if (!is_dir($linksDirFs)) {
+    mkdir($linksDirFs, 0755, true);
+}
+
+$linksHtml = "";
+if (!empty($uploadedLinks)) {
+    $linksHtml .= "<ul class=\"bswp-links\">\n";
+    foreach ($uploadedLinks as $lnk) {
+        $safeUrl   = htmlspecialchars($lnk['url'], ENT_QUOTES);
+        $safeTitle = htmlspecialchars($lnk['title'], ENT_QUOTES);
+        $linksHtml .= "    <li><a href=\"{$safeUrl}\" target=\"_blank\" rel=\"noopener\">{$safeTitle}</a></li>\n";
+    }
+    $linksHtml .= "</ul>\n";
+}
+file_put_contents($linksDirFs . "/" . $NEW_FILENAME, $linksHtml);
+
 // 6. BUILD DESCRIPTION HTML (For index.html standard layout)
 if (!empty($postDescription)) {
     $descHtml = "<div style='background: #f0f7ff; padding: 15px; border-left: 4px solid #007bff; margin-bottom: 20px; border-radius: 5px;'>\n";

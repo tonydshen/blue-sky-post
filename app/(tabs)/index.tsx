@@ -33,6 +33,11 @@ interface DocumentItem {
   mimeType?: string;
 }
 
+interface LinkItem {
+  url: string;
+  caption: string;
+}
+
 interface UserProfile {
   fname: string;
   lname: string;
@@ -48,6 +53,7 @@ export default function BlueSkyApp() {
   const [postDescription, setPostDescription] = useState("");
   const [mediaList, setMediaList] = useState<PostMedia[]>([]);
   const [documentList, setDocumentList] = useState<DocumentItem[]>([]);
+  const [linkList, setLinkList] = useState<LinkItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const [locationEnabled, setLocationEnabled] = useState(true);
 
@@ -153,6 +159,23 @@ export default function BlueSkyApp() {
     setDocumentList(updated);
   };
 
+  // --- Link Functions ---
+  const addLink = () => {
+    setLinkList([...linkList, { url: "", caption: "" }]);
+  };
+
+  const updateLink = (index: number, field: keyof LinkItem, value: string) => {
+    const updated = [...linkList];
+    updated[index][field] = value;
+    setLinkList(updated);
+  };
+
+  const removeLink = (index: number) => {
+    const updated = [...linkList];
+    updated.splice(index, 1);
+    setLinkList(updated);
+  };
+
   // Alternative document picker - uses no MIME type restrictions (broadest compatibility)
   const pickDocumentUniversal = async () => {
     try {
@@ -185,7 +208,13 @@ export default function BlueSkyApp() {
   };
 
   const uploadToDCL = async () => {
-    if (mediaList.length === 0 && documentList.length === 0) return;
+    const validLinks = linkList.filter((l) => l.url.trim() !== "");
+    if (
+      mediaList.length === 0 &&
+      documentList.length === 0 &&
+      validLinks.length === 0
+    )
+      return;
     setUploading(true);
 
     try {
@@ -223,6 +252,12 @@ export default function BlueSkyApp() {
         formData.append(`document_caption_${index}`, doc.caption);
       });
 
+      // Append links (URL + description) as plain POST fields
+      validLinks.forEach((link, index) => {
+        formData.append(`link_url_${index}`, link.url.trim());
+        formData.append(`link_caption_${index}`, link.caption);
+      });
+
       const response = await fetch(
         "https://datacommlab.com/scripts/test3.php",
         {
@@ -244,6 +279,7 @@ export default function BlueSkyApp() {
         ]);
         setMediaList([]);
         setDocumentList([]);
+        setLinkList([]);
         setPostTitle("");
         setPostDescription("");
       } else {
@@ -329,7 +365,49 @@ export default function BlueSkyApp() {
         <Text style={styles.btnText}>+ Add Document (PDF, Word, etc.)</Text>
       </TouchableOpacity>
 
-      {(mediaList.length > 0 || documentList.length > 0) && (
+      {/* Links Section */}
+      {linkList.length > 0 && (
+        <View style={styles.linkTable}>
+          <View style={styles.linkHeaderRow}>
+            <Text style={[styles.linkHeaderCell, { flex: 1 }]}>URL</Text>
+            <Text style={[styles.linkHeaderCell, { flex: 1 }]}>Description</Text>
+            <View style={styles.linkRemoveSpacer} />
+          </View>
+          {linkList.map((link, index) => (
+            <View key={index} style={styles.linkRow}>
+              <TextInput
+                style={styles.linkCell}
+                placeholder="https://..."
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                value={link.url}
+                onChangeText={(t) => updateLink(index, "url", t)}
+              />
+              <TextInput
+                style={styles.linkCell}
+                placeholder="Description"
+                value={link.caption}
+                onChangeText={(t) => updateLink(index, "caption", t)}
+              />
+              <TouchableOpacity
+                style={styles.linkRemoveBtn}
+                onPress={() => removeLink(index)}
+              >
+                <Text style={styles.removeBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+
+      <TouchableOpacity style={styles.btnGreen} onPress={addLink}>
+        <Text style={styles.btnText}>+ Add Links</Text>
+      </TouchableOpacity>
+
+      {(mediaList.length > 0 ||
+        documentList.length > 0 ||
+        linkList.length > 0) && (
         <TouchableOpacity
           style={styles.btnBlue}
           onPress={uploadToDCL}
@@ -601,6 +679,59 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 30,
   },
+  btnGreen: {
+    backgroundColor: "#28a745",
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    marginVertical: 10,
+  },
+  linkTable: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    overflow: "hidden",
+    marginBottom: 10,
+  },
+  linkHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#eafaef",
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+  },
+  linkHeaderCell: {
+    fontWeight: "bold",
+    color: "#218838",
+    fontSize: 13,
+    paddingHorizontal: 4,
+  },
+  linkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  linkCell: {
+    flex: 1,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 5,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: "#eee",
+    fontSize: 13,
+    marginHorizontal: 4,
+  },
+  linkRemoveBtn: {
+    width: 30,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  linkRemoveSpacer: {
+    width: 30,
+  },
   btnText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
   row: {
     flexDirection: "row",
@@ -653,5 +784,10 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     alignItems: "center",
     marginTop: 8,
+  },
+  removeBtnText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 14,
   },
 });
